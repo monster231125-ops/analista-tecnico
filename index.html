@@ -171,6 +171,48 @@
     border:1px dashed var(--border);border-radius:var(--radius);font-size:13.5px;
   }
 
+  /* ---- Portafolio ---- */
+  .summary-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:10px;margin-bottom:4px;
+  }
+  .summary-box{
+    background:var(--surface-2);border:1px solid var(--border);
+    border-radius:7px;padding:10px 12px;
+  }
+  .summary-box .k{font-size:10.5px;color:var(--text-faint);text-transform:uppercase;
+    letter-spacing:.04em;margin-bottom:3px;}
+  .summary-box .v{font-family:var(--mono);font-size:16px;font-weight:700;}
+  .summary-box .v.bull{color:var(--buy);}
+  .summary-box .v.bear{color:var(--sell);}
+  .fx-note{font-size:11px;color:var(--text-faint);margin-top:8px;font-family:var(--mono);}
+
+  .pos-card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;
+  }
+  .pos-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;}
+  .pos-head h4{margin:0;font-size:15px;font-weight:700;}
+  .pos-sub{font-size:11.5px;color:var(--text-muted);font-family:var(--mono);margin-top:2px;}
+  .pos-gain{text-align:right;}
+  .pos-gain .amt{font-family:var(--mono);font-size:15px;font-weight:700;}
+  .pos-gain .pct{font-family:var(--mono);font-size:12px;}
+  .pos-notes{font-size:12px;color:var(--text-muted);margin-top:8px;font-style:italic;}
+  .pos-noLive{font-size:12px;color:var(--text-faint);margin-top:8px;}
+
+  .close-form{
+    margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);
+    display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;
+  }
+
+  .history-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;}
+  .history-table th{
+    text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--text-faint);padding:6px 8px;border-bottom:1px solid var(--border);
+  }
+  .history-table td{padding:7px 8px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+  .history-table td.sym{font-family:var(--sans);font-weight:600;}
+
   @media (max-width:520px){
     .card-head{flex-direction:column;}
     .price-block{text-align:left;}
@@ -263,6 +305,84 @@
   <div class="assets" id="assetsList"></div>
   <div class="empty" id="emptyState">Aún no has agregado ningún activo. Usa el formulario de arriba para empezar.</div>
 
+  <div class="panel">
+    <h2>Registrar compra</h2>
+    <div class="row">
+      <div class="field" style="min-width:130px;flex:0.7;">
+        <label for="posType">Mercado</label>
+        <select id="posType">
+          <option value="stock_us">Acción EE.UU. (USD)</option>
+          <option value="stock_bmv">Acción BMV (MXN)</option>
+          <option value="crypto">Cripto (USD)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="posSymbol">Símbolo</label>
+        <input type="text" id="posSymbol" placeholder="AAPL / bitcoin / AMXL" list="watchlistSymbols">
+        <datalist id="watchlistSymbols"></datalist>
+      </div>
+      <div class="field">
+        <label for="posDate">Fecha de compra</label>
+        <input type="date" id="posDate">
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div class="field">
+        <label for="posPrice">Precio de compra (por unidad)</label>
+        <input type="number" id="posPrice" step="any" placeholder="150.00">
+      </div>
+      <div class="field">
+        <label for="posQty">Cantidad</label>
+        <input type="number" id="posQty" step="any" placeholder="10">
+      </div>
+      <div class="field" style="min-width:110px;flex:0.6;">
+        <label for="posCurrency">Moneda</label>
+        <select id="posCurrency">
+          <option value="USD">USD</option>
+          <option value="MXN">MXN</option>
+        </select>
+      </div>
+      <div class="field" style="flex:0;">
+        <label>&nbsp;</label>
+        <button onclick="addPosition()">+ Registrar compra</button>
+      </div>
+    </div>
+    <div class="field" style="margin-top:10px;">
+      <label for="posNotes">Notas (opcional)</label>
+      <input type="text" id="posNotes" placeholder="ej. entrada por cruce de medias">
+    </div>
+    <div class="hint">
+      La ganancia se calcula con el precio en vivo del activo (agrégalo también a la Watchlist de arriba para que se actualice). Si compras en una moneda distinta a la moneda nativa del activo, la conversión usa el tipo de cambio <b>actual</b>, no el histórico del día de compra — la ganancia mostrada es aproximada.
+    </div>
+    <div class="fx-note" id="fxNote">Obteniendo tipo de cambio USD/MXN…</div>
+  </div>
+
+  <div class="panel">
+    <h2>Resumen de portafolio</h2>
+    <div class="row" style="margin-bottom:12px;">
+      <div class="field" style="min-width:130px;flex:0.6;">
+        <label for="summaryCurrency">Ver resumen en</label>
+        <select id="summaryCurrency" onchange="renderPortfolio()">
+          <option value="USD">USD</option>
+          <option value="MXN">MXN</option>
+        </select>
+      </div>
+    </div>
+    <div class="summary-grid" id="summaryGrid"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-bottom:6px;">Posiciones abiertas</h2>
+    <div id="openPositions"></div>
+    <div class="empty" id="emptyPositions" style="display:none;">Aún no has registrado ninguna compra.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Historial de cierres</h2>
+    <div id="closedHistory"></div>
+    <div class="empty" id="emptyClosed" style="display:none;">Todavía no has cerrado ninguna posición.</div>
+  </div>
+
 </div>
 
 <script>
@@ -270,12 +390,16 @@
 const STATE = {
   apiKey: '',
   watchlist: [],
+  positions: [], // { id, symbol, type, buyDate, buyPrice, buyCurrency, qty, notes, status: 'abierta'|'cerrada', closed:[{...}] }
   cache: {}, // symbol -> {series, lastFetch, error}
   pollTimer: null,
   queue: [],
   processing: false,
-  storageOK: true
+  storageOK: true,
+  fxUsdMxn: null,
+  closingId: null // id de la posición cuyo formulario de cierre está abierto
 };
+const NATIVE_CUR = { stock_us: 'USD', stock_bmv: 'MXN', crypto: 'USD' };
 
 async function loadPersisted(){
   const hasWS = (typeof window.storage !== 'undefined');
@@ -288,12 +412,43 @@ async function loadPersisted(){
       const wl = await window.storage.get('watchlist_v1');
       if(wl && wl.value) STATE.watchlist = JSON.parse(wl.value);
     }catch(e){ /* no guardado aún */ }
+    try{
+      const pos = await window.storage.get('positions_v1');
+      if(pos && pos.value) STATE.positions = JSON.parse(pos.value);
+    }catch(e){ /* no guardado aún */ }
+    try{
+      const fx = await window.storage.get('fx_usdmxn');
+      if(fx && fx.value) STATE.fxUsdMxn = parseFloat(fx.value);
+    }catch(e){ /* no guardado aún */ }
   } else {
     try{
       STATE.apiKey = localStorage.getItem('td_api_key') || '';
       STATE.watchlist = JSON.parse(localStorage.getItem('watchlist_v1') || '[]');
+      STATE.positions = JSON.parse(localStorage.getItem('positions_v1') || '[]');
+      const fxLocal = localStorage.getItem('fx_usdmxn');
+      if(fxLocal) STATE.fxUsdMxn = parseFloat(fxLocal);
     }catch(e){ /* localStorage no disponible */ }
   }
+}
+async function persistPositions(){
+  try{
+    if(typeof window.storage !== 'undefined'){
+      await window.storage.set('positions_v1', JSON.stringify(STATE.positions));
+    } else {
+      localStorage.setItem('positions_v1', JSON.stringify(STATE.positions));
+    }
+  }catch(e){
+    console.error('No se pudo guardar el portafolio', e);
+  }
+}
+async function persistFx(rate){
+  try{
+    if(typeof window.storage !== 'undefined'){
+      await window.storage.set('fx_usdmxn', String(rate));
+    } else {
+      localStorage.setItem('fx_usdmxn', String(rate));
+    }
+  }catch(e){ /* no crítico */ }
 }
 
 async function persistWatchlist(){
@@ -553,6 +708,7 @@ async function processQueue(){
     text.textContent = 'Consultando ' + asset.symbol + '…';
     await fetchOne(asset);
     renderAssets();
+    renderPortfolio();
     // Espaciado: Twelve Data free = 8/min. Cripto (CoinGecko) puede ir más rápido.
     const delay = asset.type === 'crypto' ? 1500 : 8000;
     await new Promise(r => setTimeout(r, delay));
@@ -674,6 +830,330 @@ function indBox(label, value, cls=''){
   return `<div class="ind"><div class="k">${label}</div><div class="v ${cls}">${value}</div></div>`;
 }
 
+/* ---------- TIPO DE CAMBIO USD/MXN ---------- */
+async function fetchFxRate(){
+  try{
+    const res = await fetch('https://api.frankfurter.dev/v1/latest?from=USD&to=MXN');
+    const data = await res.json();
+    if(data && data.rates && data.rates.MXN){
+      STATE.fxUsdMxn = data.rates.MXN;
+      await persistFx(STATE.fxUsdMxn);
+    }
+  }catch(e){ /* nos quedamos con el valor guardado, si hay */ }
+  renderFxNote();
+  renderPortfolio();
+}
+function renderFxNote(){
+  const el = document.getElementById('fxNote');
+  if(!el) return;
+  if(STATE.fxUsdMxn){
+    el.textContent = `Tipo de cambio usado: 1 USD ≈ ${STATE.fxUsdMxn.toFixed(2)} MXN (referencia diaria, no en tiempo real).`;
+  } else {
+    el.textContent = 'No se pudo obtener el tipo de cambio (revisa que no estés en la vista previa de Claude). Las conversiones entre USD y MXN no estarán disponibles hasta que cargue.';
+  }
+}
+function convert(amount, from, to){
+  if(from === to) return amount;
+  if(!STATE.fxUsdMxn) return null;
+  if(from === 'USD' && to === 'MXN') return amount * STATE.fxUsdMxn;
+  if(from === 'MXN' && to === 'USD') return amount / STATE.fxUsdMxn;
+  return null;
+}
+
+/* ---------- PORTAFOLIO: ALTA / CIERRE ---------- */
+function updateWatchlistDatalist(){
+  const dl = document.getElementById('watchlistSymbols');
+  if(!dl) return;
+  dl.innerHTML = STATE.watchlist.map(a => `<option value="${a.symbol}">`).join('');
+}
+function addPosition(){
+  const type = document.getElementById('posType').value;
+  const symbolRaw = document.getElementById('posSymbol').value.trim();
+  const date = document.getElementById('posDate').value || new Date().toISOString().slice(0,10);
+  const price = parseFloat(document.getElementById('posPrice').value);
+  const qty = parseFloat(document.getElementById('posQty').value);
+  const currency = document.getElementById('posCurrency').value;
+  const notes = document.getElementById('posNotes').value.trim();
+
+  if(!symbolRaw || isNaN(price) || isNaN(qty) || price<=0 || qty<=0){
+    alert('Completa símbolo, precio y cantidad (mayores a 0).');
+    return;
+  }
+  const symbol = type === 'crypto' ? symbolRaw : symbolRaw.toUpperCase();
+
+  STATE.positions.push({
+    id: 'pos_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+    symbol, type, buyDate: date, buyPrice: price, buyCurrency: currency,
+    qty, notes, status: 'abierta'
+  });
+  persistPositions();
+
+  document.getElementById('posSymbol').value = '';
+  document.getElementById('posPrice').value = '';
+  document.getElementById('posQty').value = '';
+  document.getElementById('posNotes').value = '';
+
+  renderPortfolio();
+}
+function toggleClose(id){
+  STATE.closingId = (STATE.closingId === id) ? null : id;
+  renderPortfolio();
+}
+function cancelClose(){
+  STATE.closingId = null;
+  renderPortfolio();
+}
+function submitClose(id){
+  const pos = STATE.positions.find(p => p.id === id);
+  if(!pos) return;
+  const sellPrice = parseFloat(document.getElementById('sellPrice_'+id).value);
+  const sellQtyInput = document.getElementById('sellQty_'+id).value;
+  const sellQty = sellQtyInput ? parseFloat(sellQtyInput) : pos.qty;
+  const sellDate = document.getElementById('sellDate_'+id).value || new Date().toISOString().slice(0,10);
+  const sellCurrency = document.getElementById('sellCurrency_'+id).value;
+
+  if(isNaN(sellPrice) || sellPrice<=0 || isNaN(sellQty) || sellQty<=0 || sellQty > pos.qty){
+    alert('Revisa el precio y la cantidad de venta (la cantidad no puede exceder lo que tienes abierto).');
+    return;
+  }
+
+  const sellPriceInBuyCur = sellCurrency === pos.buyCurrency
+    ? sellPrice
+    : convert(sellPrice, sellCurrency, pos.buyCurrency);
+
+  if(sellPriceInBuyCur === null){
+    alert('No hay tipo de cambio disponible todavía para convertir esta venta. Intenta de nuevo en un momento.');
+    return;
+  }
+
+  const realizedGain = (sellPriceInBuyCur - pos.buyPrice) * sellQty;
+  const realizedGainPct = (pos.buyPrice * sellQty) !== 0 ? (realizedGain / (pos.buyPrice*sellQty) * 100) : 0;
+  const holdingDays = Math.round((new Date(sellDate) - new Date(pos.buyDate)) / 86400000);
+
+  if(!STATE.closedPositions) STATE.closedPositions = [];
+  STATE.closedPositions.push({
+    id: 'closed_' + Date.now(),
+    symbol: pos.symbol, type: pos.type,
+    buyDate: pos.buyDate, buyPrice: pos.buyPrice, buyCurrency: pos.buyCurrency,
+    sellDate, sellPrice, sellCurrency, qty: sellQty,
+    realizedGain, realizedGainPct, holdingDays
+  });
+
+  pos.qty = +(pos.qty - sellQty).toFixed(8);
+  if(pos.qty <= 0.00000001){
+    STATE.positions = STATE.positions.filter(p => p.id !== id);
+  }
+
+  STATE.closingId = null;
+  persistPositions();
+  persistClosed();
+  renderPortfolio();
+}
+function deletePosition(id){
+  STATE.positions = STATE.positions.filter(p => p.id !== id);
+  persistPositions();
+  renderPortfolio();
+}
+async function persistClosed(){
+  try{
+    if(typeof window.storage !== 'undefined'){
+      await window.storage.set('closed_v1', JSON.stringify(STATE.closedPositions || []));
+    } else {
+      localStorage.setItem('closed_v1', JSON.stringify(STATE.closedPositions || []));
+    }
+  }catch(e){ console.error('No se pudo guardar el historial', e); }
+}
+async function loadClosed(){
+  try{
+    if(typeof window.storage !== 'undefined'){
+      const c = await window.storage.get('closed_v1');
+      STATE.closedPositions = (c && c.value) ? JSON.parse(c.value) : [];
+    } else {
+      STATE.closedPositions = JSON.parse(localStorage.getItem('closed_v1') || '[]');
+    }
+  }catch(e){ STATE.closedPositions = []; }
+}
+
+/* ---------- PORTAFOLIO: MÉTRICAS ---------- */
+function livePriceFor(symbol, type){
+  const c = STATE.cache[type+':'+symbol];
+  if(!c || c.error) return null;
+  return c.last;
+}
+function metricsFor(pos){
+  const nativeCur = NATIVE_CUR[pos.type];
+  const current = livePriceFor(pos.symbol, pos.type);
+  if(current === null || current === undefined){
+    return { hasLive:false };
+  }
+  let currentInBuyCur = current;
+  if(nativeCur !== pos.buyCurrency){
+    currentInBuyCur = convert(current, nativeCur, pos.buyCurrency);
+    if(currentInBuyCur === null) return { hasLive:false, fxMissing:true };
+  }
+  const currentValue = currentInBuyCur * pos.qty;
+  const investedValue = pos.buyPrice * pos.qty;
+  const gain = currentValue - investedValue;
+  const gainPct = investedValue !== 0 ? (gain/investedValue*100) : 0;
+  return { hasLive:true, currentValue, investedValue, gain, gainPct };
+}
+
+/* ---------- PORTAFOLIO: RENDER ---------- */
+function fmtMoney(v, cur){
+  if(v===null || v===undefined || isNaN(v)) return '—';
+  return (cur==='MXN' ? 'MX$' : '$') + v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function renderPortfolio(){
+  updateWatchlistDatalist();
+  renderFxNote();
+  renderOpenPositions();
+  renderSummary();
+  renderClosedHistory();
+}
+function renderOpenPositions(){
+  const wrap = document.getElementById('openPositions');
+  const empty = document.getElementById('emptyPositions');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  if(STATE.positions.length === 0){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  STATE.positions.forEach(pos => {
+    const m = metricsFor(pos);
+    const card = document.createElement('div');
+    card.className = 'pos-card';
+
+    let gainBlock = '<div class="pos-noLive">Sin precio en vivo — agrega este símbolo a la Watchlist de arriba para ver la ganancia estimada.</div>';
+    if(m.fxMissing){
+      gainBlock = '<div class="pos-noLive">Esperando tipo de cambio para convertir a tu moneda de compra.</div>';
+    } else if(m.hasLive){
+      const cls = m.gain >= 0 ? 'up' : 'down';
+      const sign = m.gain >= 0 ? '+' : '';
+      gainBlock = `
+        <div class="pos-gain">
+          <div class="amt ${cls==='up'?'change up':'change down'}">${sign}${fmtMoney(m.gain, pos.buyCurrency)}</div>
+          <div class="pct ${cls==='up'?'change up':'change down'}">${sign}${m.gainPct.toFixed(2)}%</div>
+        </div>`;
+    }
+
+    let closeSection = '';
+    if(STATE.closingId === pos.id){
+      closeSection = `
+        <div class="close-form">
+          <div class="field">
+            <label>Precio de venta</label>
+            <input type="number" id="sellPrice_${pos.id}" step="any" placeholder="${pos.buyPrice}">
+          </div>
+          <div class="field">
+            <label>Cantidad a cerrar</label>
+            <input type="number" id="sellQty_${pos.id}" step="any" placeholder="${pos.qty}">
+          </div>
+          <div class="field">
+            <label>Fecha de venta</label>
+            <input type="date" id="sellDate_${pos.id}">
+          </div>
+          <div class="field" style="min-width:90px;flex:0.5;">
+            <label>Moneda</label>
+            <select id="sellCurrency_${pos.id}">
+              <option value="USD" ${pos.buyCurrency==='USD'?'selected':''}>USD</option>
+              <option value="MXN" ${pos.buyCurrency==='MXN'?'selected':''}>MXN</option>
+            </select>
+          </div>
+          <button onclick="submitClose('${pos.id}')">Confirmar cierre</button>
+          <button class="subtle" onclick="cancelClose()">Cancelar</button>
+        </div>`;
+    }
+
+    card.innerHTML = `
+      <div class="pos-head">
+        <div>
+          <h4>${pos.symbol} <span class="type">${typeLabel(pos.type)}</span></h4>
+          <div class="pos-sub">${pos.qty} und · compra ${fmtMoney(pos.buyPrice, pos.buyCurrency)} · ${pos.buyDate}</div>
+        </div>
+        ${gainBlock}
+      </div>
+      ${pos.notes ? `<div class="pos-notes">${pos.notes}</div>` : ''}
+      <div class="card-footer">
+        <span class="updated">Costo total: ${fmtMoney(pos.buyPrice*pos.qty, pos.buyCurrency)}</span>
+        <div class="card-actions">
+          <button class="icon-btn" onclick="toggleClose('${pos.id}')">${STATE.closingId===pos.id?'Cerrar formulario':'Cerrar posición'}</button>
+          <button class="icon-btn" onclick="deletePosition('${pos.id}')">Eliminar</button>
+        </div>
+      </div>
+      ${closeSection}
+    `;
+    wrap.appendChild(card);
+  });
+}
+function renderSummary(){
+  const grid = document.getElementById('summaryGrid');
+  if(!grid) return;
+  const baseCur = document.getElementById('summaryCurrency').value;
+
+  let invested = 0, currentValue = 0, hasAnyLive = false, missingFx = false;
+  STATE.positions.forEach(pos => {
+    const m = metricsFor(pos);
+    const investedConv = convert(pos.buyPrice*pos.qty, pos.buyCurrency, baseCur);
+    if(investedConv === null){ missingFx = true; return; }
+    invested += investedConv;
+    if(m.hasLive){
+      const curConv = convert(m.currentValue, pos.buyCurrency, baseCur);
+      if(curConv === null){ missingFx = true; return; }
+      currentValue += curConv;
+      hasAnyLive = true;
+    }
+  });
+  const unrealized = currentValue - invested;
+
+  let realized = 0;
+  (STATE.closedPositions || []).forEach(cp => {
+    const conv = convert(cp.realizedGain, cp.buyCurrency, baseCur);
+    if(conv !== null) realized += conv;
+  });
+
+  grid.innerHTML = `
+    <div class="summary-box"><div class="k">Invertido (abierto)</div><div class="v">${fmtMoney(invested, baseCur)}</div></div>
+    <div class="summary-box"><div class="k">Valor actual</div><div class="v">${hasAnyLive ? fmtMoney(currentValue, baseCur) : '—'}</div></div>
+    <div class="summary-box"><div class="k">Ganancia no realizada</div><div class="v ${unrealized>=0?'bull':'bear'}">${hasAnyLive ? (unrealized>=0?'+':'')+fmtMoney(unrealized, baseCur) : '—'}</div></div>
+    <div class="summary-box"><div class="k">Ganancia realizada (histórico)</div><div class="v ${realized>=0?'bull':'bear'}">${(realized>=0?'+':'')+fmtMoney(realized, baseCur)}</div></div>
+  `;
+  if(missingFx){
+    grid.insertAdjacentHTML('beforeend', '<div class="hint" style="width:100%;">Algunas cifras no se pudieron convertir por falta de tipo de cambio.</div>');
+  }
+}
+function renderClosedHistory(){
+  const wrap = document.getElementById('closedHistory');
+  const empty = document.getElementById('emptyClosed');
+  if(!wrap) return;
+  const list = STATE.closedPositions || [];
+  if(list.length === 0){
+    wrap.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  let rows = list.slice().reverse().map(cp => {
+    const cls = cp.realizedGain >= 0 ? 'up' : 'down';
+    const sign = cp.realizedGain >= 0 ? '+' : '';
+    return `<tr>
+      <td class="sym">${cp.symbol}</td>
+      <td>${cp.qty}</td>
+      <td>${fmtMoney(cp.buyPrice, cp.buyCurrency)} → ${fmtMoney(cp.sellPrice, cp.sellCurrency)}</td>
+      <td>${cp.buyDate} → ${cp.sellDate}</td>
+      <td>${cp.holdingDays} d</td>
+      <td class="change ${cls}">${sign}${fmtMoney(cp.realizedGain, cp.buyCurrency)} (${sign}${cp.realizedGainPct.toFixed(2)}%)</td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML = `
+    <table class="history-table">
+      <thead><tr><th>Símbolo</th><th>Cant.</th><th>Compra → Venta</th><th>Fechas</th><th>Días</th><th>Ganancia realizada</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
 /* ---------- DETECCIÓN DE SANDBOX ---------- */
 async function detectSandbox(){
   try{
@@ -688,10 +1168,14 @@ async function detectSandbox(){
 async function init(){
   detectSandbox();
   await loadPersisted();
+  await loadClosed();
   document.getElementById('apiKey').value = STATE.apiKey;
+  document.getElementById('posDate').value = new Date().toISOString().slice(0,10);
   updateKeyStatus();
   updateSymbolHint();
   renderAssets();
+  renderPortfolio();
+  fetchFxRate();
   if(STATE.watchlist.length){
     refreshAll();
   }
