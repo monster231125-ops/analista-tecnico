@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analista Técnico · Señales de mercado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f4f3;
+    --surface:#ffffff;
+    --surface-2:#fafafa;
+    --border:#e3e3e0;
+    --text:#17171a;
+    --text-muted:#71716d;
+    --text-faint:#a3a39d;
+    --accent:#0d7d72;
+    --accent-dim:#e3f2f0;
+    --buy:#1a7d3c;
+    --buy-bg:#e8f5ec;
+    --sell:#c0392b;
+    --sell-bg:#fbeae8;
+    --neutral:#8a8a84;
+    --neutral-bg:#f0f0ee;
+    --radius:10px;
+    --mono:'IBM Plex Mono',monospace;
+    --sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px;}
+
+  header.top{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    gap:16px;margin-bottom:22px;flex-wrap:wrap;
+  }
+  header.top h1{
+    font-size:22px;font-weight:800;letter-spacing:-0.02em;margin:0 0 4px;
+  }
+  header.top p{color:var(--text-muted);font-size:13.5px;margin:0;max-width:520px;}
+  .clock{
+    font-family:var(--mono);font-size:12px;color:var(--text-faint);
+    text-align:right;white-space:nowrap;
+  }
+  .clock b{color:var(--text-muted);display:block;font-weight:600;}
+
+  .disclaimer{
+    background:#fff8ec;border:1px solid #f0dfae;color:#7a5c14;
+    border-radius:var(--radius);padding:12px 14px;font-size:12.5px;
+    margin-bottom:22px;line-height:1.5;
+  }
+  .disclaimer strong{display:block;margin-bottom:2px;font-size:13px;}
+
+  .panel{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:18px;margin-bottom:18px;
+  }
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--text-muted);margin:0 0 14px;font-weight:600;}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:130px;}
+  .field label{font-size:11.5px;color:var(--text-muted);font-weight:500;}
+  input,select{
+    font-family:var(--sans);font-size:13.5px;padding:9px 10px;
+    border:1px solid var(--border);border-radius:7px;background:var(--surface-2);
+    color:var(--text);outline:none;
+  }
+  input:focus,select:focus{border-color:var(--accent);background:#fff;}
+  input[type=number]{font-family:var(--mono);}
+  button{
+    font-family:var(--sans);font-weight:600;font-size:13px;
+    padding:9px 16px;border-radius:7px;border:1px solid var(--accent);
+    background:var(--accent);color:#fff;cursor:pointer;white-space:nowrap;
+  }
+  button:hover{opacity:.92;}
+  button.ghost{
+    background:transparent;color:var(--accent);
+  }
+  button.subtle{
+    background:transparent;border-color:var(--border);color:var(--text-muted);
+    font-weight:500;
+  }
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  .hint{font-size:11px;color:var(--text-faint);margin-top:8px;line-height:1.5;}
+  .key-status{font-size:11.5px;margin-top:6px;font-family:var(--mono);}
+  .key-status.ok{color:var(--buy);}
+  .key-status.missing{color:var(--sell);}
+
+  .queue-bar{
+    display:flex;align-items:center;gap:10px;font-size:11.5px;
+    color:var(--text-faint);font-family:var(--mono);margin-top:4px;
+  }
+  .queue-bar .dot{width:6px;height:6px;border-radius:50%;background:var(--text-faint);}
+  .queue-bar .dot.active{background:var(--accent);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .assets{display:flex;flex-direction:column;gap:12px;}
+
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:16px 18px;
+  }
+  .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .asset-id h3{margin:0;font-size:16px;font-weight:700;}
+  .asset-id span.type{
+    font-size:10.5px;color:var(--text-faint);text-transform:uppercase;
+    letter-spacing:.05em;font-weight:600;
+  }
+  .price-block{text-align:right;}
+  .price{font-family:var(--mono);font-size:19px;font-weight:600;}
+  .change{font-family:var(--mono);font-size:12.5px;font-weight:600;}
+  .change.up{color:var(--buy);}
+  .change.down{color:var(--sell);}
+
+  .signal-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:700;
+    margin:10px 0 8px;
+  }
+  .signal-badge.compra-fuerte{background:var(--buy-bg);color:var(--buy);}
+  .signal-badge.compra{background:var(--buy-bg);color:var(--buy);opacity:.85;}
+  .signal-badge.neutral{background:var(--neutral-bg);color:var(--neutral);}
+  .signal-badge.venta{background:var(--sell-bg);color:var(--sell);opacity:.85;}
+  .signal-badge.venta-fuerte{background:var(--sell-bg);color:var(--sell);}
+
+  .horizon{font-size:12.5px;color:var(--text-muted);margin-bottom:10px;}
+  .horizon b{color:var(--text);}
+
+  .indicators{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:8px;margin-top:8px;
+  }
+  .ind{
+    background:var(--surface-2);border:1px solid var(--border);
+    border-radius:7px;padding:8px 10px;
+  }
+  .ind .k{font-size:10.5px;color:var(--text-faint);text-transform:uppercase;
+    letter-spacing:.04em;margin-bottom:2px;}
+  .ind .v{font-family:var(--mono);font-size:13px;font-weight:600;}
+  .ind .v.bull{color:var(--buy);}
+  .ind .v.bear{color:var(--sell);}
+
+  .card-footer{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-top:12px;padding-top:10px;border-top:1px solid var(--border);
+  }
+  .updated{font-size:11px;color:var(--text-faint);font-family:var(--mono);}
+  .card-actions{display:flex;gap:8px;}
+  .icon-btn{
+    background:transparent;border:none;color:var(--text-faint);
+    font-size:12px;cursor:pointer;padding:4px 6px;
+  }
+  .icon-btn:hover{color:var(--sell);}
+
+  .error-msg{
+    background:var(--sell-bg);color:var(--sell);border-radius:7px;
+    padding:8px 10px;font-size:12px;margin-top:8px;
+  }
+  .loading-msg{color:var(--text-faint);font-size:12.5px;font-style:italic;margin-top:8px;}
+
+  .empty{
+    text-align:center;padding:50px 20px;color:var(--text-faint);
+    border:1px dashed var(--border);border-radius:var(--radius);font-size:13.5px;
+  }
+
+  @media (max-width:520px){
+    .card-head{flex-direction:column;}
+    .price-block{text-align:left;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Analista Técnico</h1>
+      <p>Indicadores técnicos y señales calculadas en tiempo casi real para acciones, BMV y cripto. No es asesoría financiera.</p>
+    </div>
+    <div class="clock">
+      <b id="clockTime">--:--:--</b>
+      <span id="clockDate">-- --- ----</span>
+    </div>
+  </header>
+
+  <div class="disclaimer" id="sandboxWarning" style="display:none;background:#fbeae8;border-color:#e6b3ab;color:#8a2e22;">
+    <strong>Vista previa limitada</strong>
+    Estás viendo este aplicativo dentro de la vista previa de Claude, que bloquea las conexiones a APIs externas por seguridad (por eso ves "Failed to fetch"). Descarga el archivo .html y ábrelo directamente en tu navegador, o súbelo a GitHub Pages — ahí las llamadas a Twelve Data y CoinGecko funcionan con normalidad.
+  </div>
+
+  <div class="disclaimer">
+    <strong>Antes de usarlo</strong>
+    Esta herramienta calcula indicadores técnicos estándar (medias móviles, RSI, MACD, Bandas de Bollinger) y combina esas señales en una recomendación heurística. Es información para apoyar tu propia decisión, no una recomendación de inversión garantizada. Ningún indicador predice el futuro con certeza — verifica siempre con más de una fuente y considera tu propio perfil de riesgo.
+  </div>
+
+  <div class="panel">
+    <h2>Configuración de datos</h2>
+    <div class="row">
+      <div class="field" style="flex:2;min-width:220px;">
+        <label for="apiKey">API key de Twelve Data (acciones US / BMV)</label>
+        <input type="password" id="apiKey" placeholder="Pega aquí tu API key gratuita">
+      </div>
+      <div class="field" style="flex:0;min-width:auto;">
+        <label>&nbsp;</label>
+        <button class="ghost" onclick="saveApiKey()">Guardar key</button>
+      </div>
+      <div class="field" style="flex:1;min-width:150px;">
+        <label for="refreshInterval">Auto-actualizar cada</label>
+        <select id="refreshInterval" onchange="restartPolling()">
+          <option value="0">Manual</option>
+          <option value="60000">1 minuto</option>
+          <option value="180000" selected>3 minutos</option>
+          <option value="300000">5 minutos</option>
+          <option value="900000">15 minutos</option>
+        </select>
+      </div>
+    </div>
+    <div id="keyStatus" class="key-status missing">Sin API key — solo funcionará el módulo de cripto (CoinGecko no requiere key).</div>
+    <div class="hint">
+      Obtén una key gratuita en <b>twelvedata.com</b> (plan Basic, 800 llamadas/día). Cobertura BMV en el plan gratuito es limitada — si un ticker mexicano falla, prueba el formato "TICKER:BMV" o revisa disponibilidad en tu cuenta de Twelve Data. Cripto usa CoinGecko sin necesidad de key.
+    </div>
+    <div class="queue-bar" id="queueBar"><span class="dot" id="queueDot"></span><span id="queueText">En espera</span></div>
+  </div>
+
+  <div class="panel">
+    <h2>Agregar activo</h2>
+    <div class="row">
+      <div class="field" style="min-width:130px;flex:0.7;">
+        <label for="assetType">Mercado</label>
+        <select id="assetType" onchange="updateSymbolHint()">
+          <option value="stock_us">Acción EE.UU.</option>
+          <option value="stock_bmv">Acción BMV</option>
+          <option value="crypto">Cripto</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="assetSymbol" id="symbolLabel">Símbolo (ej. AAPL)</label>
+        <input type="text" id="assetSymbol" placeholder="AAPL">
+      </div>
+      <div class="field" style="flex:0;">
+        <label>&nbsp;</label>
+        <button onclick="addAsset()">+ Agregar</button>
+      </div>
+    </div>
+    <div class="hint" id="symbolHint">Usa el ticker tal como aparece en NYSE/NASDAQ, ej: AAPL, MSFT, TSLA.</div>
+  </div>
+
+  <div class="panel" style="display:flex;justify-content:space-between;align-items:center;">
+    <h2 style="margin:0;">Watchlist</h2>
+    <div style="display:flex;gap:8px;">
+      <button class="subtle" onclick="refreshAll()">↻ Actualizar todo</button>
+    </div>
+  </div>
+
+  <div class="assets" id="assetsList"></div>
+  <div class="empty" id="emptyState">Aún no has agregado ningún activo. Usa el formulario de arriba para empezar.</div>
+
+</div>
+
+<script>
+/* ---------- ESTADO ---------- */
+const STATE = {
+  apiKey: '',
+  watchlist: [],
+  cache: {}, // symbol -> {series, lastFetch, error}
+  pollTimer: null,
+  queue: [],
+  processing: false,
+  storageOK: true
+};
+
+async function loadPersisted(){
+  const hasWS = (typeof window.storage !== 'undefined');
+  if(hasWS){
+    try{
+      const key = await window.storage.get('td_api_key');
+      if(key && key.value) STATE.apiKey = key.value;
+    }catch(e){ /* no guardado aún */ }
+    try{
+      const wl = await window.storage.get('watchlist_v1');
+      if(wl && wl.value) STATE.watchlist = JSON.parse(wl.value);
+    }catch(e){ /* no guardado aún */ }
+  } else {
+    try{
+      STATE.apiKey = localStorage.getItem('td_api_key') || '';
+      STATE.watchlist = JSON.parse(localStorage.getItem('watchlist_v1') || '[]');
+    }catch(e){ /* localStorage no disponible */ }
+  }
+}
+
+async function persistWatchlist(){
+  try{
+    if(typeof window.storage !== 'undefined'){
+      await window.storage.set('watchlist_v1', JSON.stringify(STATE.watchlist));
+    } else {
+      localStorage.setItem('watchlist_v1', JSON.stringify(STATE.watchlist));
+    }
+  }catch(e){
+    console.error('No se pudo guardar la watchlist', e);
+  }
+}
+async function persistApiKey(val){
+  try{
+    if(typeof window.storage !== 'undefined'){
+      await window.storage.set('td_api_key', val);
+    } else {
+      localStorage.setItem('td_api_key', val);
+    }
+  }catch(e){
+    console.error('No se pudo guardar la API key', e);
+  }
+}
+
+/* ---------- RELOJ ---------- */
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clockTime').textContent = now.toLocaleTimeString('es-MX',{hour12:false});
+  document.getElementById('clockDate').textContent = now.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
+}
+setInterval(tickClock,1000); tickClock();
+
+/* ---------- CONFIG UI ---------- */
+async function saveApiKey(){
+  const val = document.getElementById('apiKey').value.trim();
+  STATE.apiKey = val;
+  await persistApiKey(val);
+  updateKeyStatus();
+  refreshAll();
+}
+function updateKeyStatus(){
+  const el = document.getElementById('keyStatus');
+  if(STATE.apiKey){
+    el.textContent = 'API key guardada localmente en tu navegador (no se envía a ningún servidor propio).';
+    el.className = 'key-status ok';
+  } else {
+    el.textContent = 'Sin API key — solo funcionará el módulo de cripto (CoinGecko no requiere key).';
+    el.className = 'key-status missing';
+  }
+}
+
+function updateSymbolHint(){
+  const type = document.getElementById('assetType').value;
+  const label = document.getElementById('symbolLabel');
+  const hint = document.getElementById('symbolHint');
+  const input = document.getElementById('assetSymbol');
+  if(type === 'crypto'){
+    label.textContent = 'ID de CoinGecko (ej. bitcoin)';
+    input.placeholder = 'bitcoin';
+    hint.textContent = 'Usa el ID exacto de CoinGecko: bitcoin, ethereum, solana, ripple, cardano, dogecoin, litecoin, etc. (no el símbolo tipo BTC).';
+  } else if(type === 'stock_bmv'){
+    label.textContent = 'Ticker BMV (ej. AMXL)';
+    input.placeholder = 'AMXL';
+    hint.textContent = 'Cobertura BMV limitada en plan gratuito de Twelve Data. Si falla, prueba agregando ":BMV" al símbolo (ej. AMXL:BMV).';
+  } else {
+    label.textContent = 'Símbolo (ej. AAPL)';
+    input.placeholder = 'AAPL';
+    hint.textContent = 'Usa el ticker tal como aparece en NYSE/NASDAQ, ej: AAPL, MSFT, TSLA.';
+  }
+}
+
+/* ---------- WATCHLIST CRUD ---------- */
+function addAsset(){
+  const type = document.getElementById('assetType').value;
+  let symbol = document.getElementById('assetSymbol').value.trim();
+  if(!symbol) return;
+  if(type !== 'crypto') symbol = symbol.toUpperCase();
+  const id = type + ':' + symbol;
+  if(STATE.watchlist.find(a => a.id === id)){
+    document.getElementById('assetSymbol').value = '';
+    return;
+  }
+  STATE.watchlist.push({id, type, symbol});
+  persistWatchlist();
+  document.getElementById('assetSymbol').value = '';
+  renderAssets();
+  enqueue(STATE.watchlist[STATE.watchlist.length-1]);
+  processQueue();
+}
+function removeAsset(id){
+  STATE.watchlist = STATE.watchlist.filter(a => a.id !== id);
+  delete STATE.cache[id];
+  persistWatchlist();
+  renderAssets();
+}
+
+/* ---------- INDICADORES ---------- */
+function sma(arr, period){
+  if(arr.length < period) return null;
+  const slice = arr.slice(arr.length - period);
+  return slice.reduce((a,b)=>a+b,0) / period;
+}
+function emaSeries(arr, period){
+  if(arr.length < period) return [];
+  const k = 2/(period+1);
+  let emaArr = [];
+  let prev = arr.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  emaArr[period-1] = prev;
+  for(let i=period;i<arr.length;i++){
+    prev = arr[i]*k + prev*(1-k);
+    emaArr[i] = prev;
+  }
+  return emaArr;
+}
+function rsi(arr, period=14){
+  if(arr.length < period+1) return null;
+  let gains=0, losses=0;
+  for(let i=arr.length-period;i<arr.length;i++){
+    const diff = arr[i]-arr[i-1];
+    if(diff>=0) gains+=diff; else losses-=diff;
+  }
+  const avgGain = gains/period, avgLoss = losses/period;
+  if(avgLoss===0) return 100;
+  const rs = avgGain/avgLoss;
+  return 100 - (100/(1+rs));
+}
+function macd(arr){
+  if(arr.length < 35) return null;
+  const ema12 = emaSeries(arr,12);
+  const ema26 = emaSeries(arr,26);
+  const macdLine = [];
+  for(let i=0;i<arr.length;i++){
+    if(ema12[i]!==undefined && ema26[i]!==undefined) macdLine[i] = ema12[i]-ema26[i];
+  }
+  const macdValues = macdLine.filter(v=>v!==undefined);
+  const signalArr = emaSeries(macdValues,9);
+  const macdVal = macdValues[macdValues.length-1];
+  const signalVal = signalArr[signalArr.length-1];
+  if(signalVal===undefined) return null;
+  return {macd: macdVal, signal: signalVal, hist: macdVal-signalVal};
+}
+function bollinger(arr, period=20, mult=2){
+  if(arr.length < period) return null;
+  const slice = arr.slice(arr.length-period);
+  const mean = slice.reduce((a,b)=>a+b,0)/period;
+  const variance = slice.reduce((a,b)=>a+Math.pow(b-mean,2),0)/period;
+  const std = Math.sqrt(variance);
+  return {upper: mean+mult*std, lower: mean-mult*std, mid: mean};
+}
+
+/* ---------- MOTOR DE SEÑALES ---------- */
+function computeSignal(closes){
+  const last = closes[closes.length-1];
+  const sma20 = sma(closes,20);
+  const sma50 = sma(closes,50);
+  const rsiVal = rsi(closes,14);
+  const macdVal = macd(closes);
+  const bb = bollinger(closes,20,2);
+
+  let score = 0;
+  const reasons = [];
+
+  if(sma20 && sma50){
+    if(sma20 > sma50){ score += 0.25; reasons.push('Tendencia alcista (SMA20 > SMA50)'); }
+    else { score -= 0.25; reasons.push('Tendencia bajista (SMA20 < SMA50)'); }
+  }
+  if(sma20){
+    if(last > sma20){ score += 0.1; } else { score -= 0.1; }
+  }
+  if(rsiVal!==null){
+    if(rsiVal < 30){ score += 0.3; reasons.push('RSI en sobreventa ('+rsiVal.toFixed(1)+')'); }
+    else if(rsiVal > 70){ score -= 0.3; reasons.push('RSI en sobrecompra ('+rsiVal.toFixed(1)+')'); }
+  }
+  if(macdVal){
+    if(macdVal.hist > 0){ score += 0.2; reasons.push('MACD por encima de su señal'); }
+    else { score -= 0.2; reasons.push('MACD por debajo de su señal'); }
+  }
+  if(bb){
+    const range = bb.upper - bb.lower;
+    if(range>0){
+      const pos = (last - bb.lower)/range;
+      if(pos < 0.15){ score += 0.15; reasons.push('Precio cerca de banda inferior de Bollinger'); }
+      else if(pos > 0.85){ score -= 0.15; reasons.push('Precio cerca de banda superior de Bollinger'); }
+    }
+  }
+
+  score = Math.max(-1, Math.min(1, score));
+
+  let label, cls, horizon;
+  if(score >= 0.55){ label='Compra fuerte'; cls='compra-fuerte'; }
+  else if(score >= 0.2){ label='Compra'; cls='compra'; }
+  else if(score > -0.2){ label='Neutral'; cls='neutral'; }
+  else if(score > -0.55){ label='Venta'; cls='venta'; }
+  else { label='Venta fuerte'; cls='venta-fuerte'; }
+
+  // Horizonte sugerido según qué tipo de señal domina
+  const trendAligned = sma20 && sma50 && ((score>0 && sma20>sma50) || (score<0 && sma20<sma50));
+  const momentumOnly = rsiVal!==null && (rsiVal<30 || rsiVal>70) && !trendAligned;
+
+  if(Math.abs(score) < 0.2){
+    horizon = 'Sin sesgo claro — esperar confirmación antes de definir plazo.';
+  } else if(trendAligned && Math.abs(score) >= 0.45){
+    horizon = (score>0?'Alcista':'Bajista') + ' de tendencia — horizonte orientativo: mediano a largo plazo (semanas a meses), mientras la tendencia se mantenga.';
+  } else if(momentumOnly){
+    horizon = 'Señal de rebote técnico por sobrecompra/sobreventa — horizonte orientativo: corto plazo (días), sujeto a confirmación de tendencia.';
+  } else {
+    horizon = 'Señal mixta — horizonte orientativo: corto a mediano plazo, con seguimiento cercano.';
+  }
+
+  return {score, label, cls, reasons, horizon, sma20, sma50, rsi: rsiVal, macd: macdVal, bb};
+}
+
+/* ---------- FETCH: TWELVE DATA (acciones) ---------- */
+async function fetchStockSeries(symbol){
+  if(!STATE.apiKey) throw new Error('Falta API key de Twelve Data. Guárdala arriba para activar acciones/BMV.');
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1day&outputsize=100&apikey=${STATE.apiKey}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if(data.status === 'error' || !data.values){
+    throw new Error(data.message || 'Símbolo no disponible en tu plan de Twelve Data.');
+  }
+  const values = data.values.slice().reverse(); // oldest -> newest
+  const closes = values.map(v => parseFloat(v.close));
+  const dates = values.map(v => v.datetime);
+  const last = closes[closes.length-1];
+  const prev = closes[closes.length-2];
+  return { closes, dates, last, changePct: prev ? ((last-prev)/prev*100) : 0 };
+}
+
+/* ---------- FETCH: COINGECKO (cripto) ---------- */
+async function fetchCryptoSeries(id){
+  const chartUrl = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=100&interval=daily`;
+  const res = await fetch(chartUrl);
+  if(!res.ok) throw new Error('ID de CoinGecko no encontrado. Verifica el nombre exacto (ej. bitcoin, ethereum).');
+  const data = await res.json();
+  if(!data.prices) throw new Error('Sin datos para este activo.');
+  const closes = data.prices.map(p => p[1]);
+  const dates = data.prices.map(p => new Date(p[0]).toISOString().slice(0,10));
+  const last = closes[closes.length-1];
+  const prev = closes[closes.length-2];
+  return { closes, dates, last, changePct: prev ? ((last-prev)/prev*100) : 0 };
+}
+
+/* ---------- COLA DE PETICIONES (respeta límites gratuitos) ---------- */
+function enqueue(asset){
+  STATE.queue.push(asset);
+}
+async function processQueue(){
+  if(STATE.processing) return;
+  STATE.processing = true;
+  const dot = document.getElementById('queueDot');
+  const text = document.getElementById('queueText');
+  while(STATE.queue.length){
+    const asset = STATE.queue.shift();
+    dot.classList.add('active');
+    text.textContent = 'Consultando ' + asset.symbol + '…';
+    await fetchOne(asset);
+    renderAssets();
+    // Espaciado: Twelve Data free = 8/min. Cripto (CoinGecko) puede ir más rápido.
+    const delay = asset.type === 'crypto' ? 1500 : 8000;
+    await new Promise(r => setTimeout(r, delay));
+  }
+  dot.classList.remove('active');
+  text.textContent = 'En espera';
+  STATE.processing = false;
+}
+async function fetchOne(asset){
+  try{
+    let result;
+    if(asset.type === 'crypto') result = await fetchCryptoSeries(asset.symbol);
+    else result = await fetchStockSeries(asset.symbol);
+    const signal = computeSignal(result.closes);
+    STATE.cache[asset.id] = { ...result, signal, error: null, updatedAt: new Date() };
+  }catch(e){
+    STATE.cache[asset.id] = { error: e.message, updatedAt: new Date() };
+  }
+}
+function refreshAll(){
+  STATE.watchlist.forEach(a => enqueue(a));
+  processQueue();
+}
+
+/* ---------- POLLING AUTOMÁTICO ---------- */
+function restartPolling(){
+  if(STATE.pollTimer) clearInterval(STATE.pollTimer);
+  const ms = parseInt(document.getElementById('refreshInterval').value, 10);
+  if(ms > 0){
+    STATE.pollTimer = setInterval(refreshAll, ms);
+  }
+}
+
+/* ---------- RENDER ---------- */
+function fmtPrice(v){
+  if(v===undefined || v===null) return '—';
+  return v >= 1000 ? v.toLocaleString('en-US',{maximumFractionDigits:2}) : v.toFixed(v<10?4:2);
+}
+function typeLabel(type){
+  return {stock_us:'Acción EE.UU.', stock_bmv:'Acción BMV', crypto:'Cripto'}[type] || type;
+}
+function renderAssets(){
+  const list = document.getElementById('assetsList');
+  const empty = document.getElementById('emptyState');
+  list.innerHTML = '';
+  if(STATE.watchlist.length === 0){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  STATE.watchlist.forEach(asset => {
+    const c = STATE.cache[asset.id];
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    let inner = `
+      <div class="card-head">
+        <div class="asset-id">
+          <h3>${asset.symbol}</h3>
+          <span class="type">${typeLabel(asset.type)}</span>
+        </div>`;
+
+    if(c && !c.error){
+      const chgClass = c.changePct >= 0 ? 'up' : 'down';
+      const chgSign = c.changePct >= 0 ? '+' : '';
+      inner += `
+        <div class="price-block">
+          <div class="price">$${fmtPrice(c.last)}</div>
+          <div class="change ${chgClass}">${chgSign}${c.changePct.toFixed(2)}%</div>
+        </div>
+      </div>`;
+
+      const s = c.signal;
+      inner += `<div class="signal-badge ${s.cls}">${s.label} · score ${s.score.toFixed(2)}</div>`;
+      inner += `<div class="horizon"><b>Horizonte orientativo:</b> ${s.horizon}</div>`;
+
+      inner += `<div class="indicators">`;
+      inner += indBox('SMA 20', s.sma20 ? fmtPrice(s.sma20) : '—');
+      inner += indBox('SMA 50', s.sma50 ? fmtPrice(s.sma50) : '—');
+      inner += indBox('RSI 14', s.rsi ? s.rsi.toFixed(1) : '—', s.rsi ? (s.rsi<30?'bull':s.rsi>70?'bear':'') : '');
+      inner += indBox('MACD hist', s.macd ? s.macd.hist.toFixed(3) : '—', s.macd ? (s.macd.hist>0?'bull':'bear') : '');
+      inner += `</div>`;
+
+      if(s.reasons.length){
+        inner += `<div class="hint" style="margin-top:10px;">${s.reasons.join(' · ')}</div>`;
+      }
+
+      inner += `
+      <div class="card-footer">
+        <span class="updated">Actualizado ${c.updatedAt.toLocaleTimeString('es-MX',{hour12:false})}</span>
+        <div class="card-actions">
+          <button class="icon-btn" onclick="removeAsset('${asset.id}')">Eliminar</button>
+        </div>
+      </div>`;
+    } else if(c && c.error){
+      inner += `
+        <div class="price-block"><div class="price">—</div></div>
+      </div>
+      <div class="error-msg">${c.error}</div>
+      <div class="card-footer">
+        <span class="updated">Intento ${c.updatedAt.toLocaleTimeString('es-MX',{hour12:false})}</span>
+        <div class="card-actions">
+          <button class="icon-btn" onclick="removeAsset('${asset.id}')">Eliminar</button>
+        </div>
+      </div>`;
+    } else {
+      inner += `
+        <div class="price-block"><div class="price">—</div></div>
+      </div>
+      <div class="loading-msg">Cargando datos…</div>`;
+    }
+
+    card.innerHTML = inner;
+    list.appendChild(card);
+  });
+}
+function indBox(label, value, cls=''){
+  return `<div class="ind"><div class="k">${label}</div><div class="v ${cls}">${value}</div></div>`;
+}
+
+/* ---------- DETECCIÓN DE SANDBOX ---------- */
+async function detectSandbox(){
+  try{
+    // CoinGecko permite CORS público; si esto falla por red, muy probablemente estamos en el sandbox de artifacts.
+    await fetch('https://api.coingecko.com/api/v3/ping', {mode:'cors'});
+  }catch(e){
+    document.getElementById('sandboxWarning').style.display = 'block';
+  }
+}
+
+/* ---------- INIT ---------- */
+async function init(){
+  detectSandbox();
+  await loadPersisted();
+  document.getElementById('apiKey').value = STATE.apiKey;
+  updateKeyStatus();
+  updateSymbolHint();
+  renderAssets();
+  if(STATE.watchlist.length){
+    refreshAll();
+  }
+  restartPolling();
+}
+init();
+</script>
+</body>
+</html>
