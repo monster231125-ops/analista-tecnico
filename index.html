@@ -134,6 +134,17 @@
   .horizon{font-size:12.5px;color:var(--text-muted);margin-bottom:10px;}
   .horizon b{color:var(--text);}
 
+  .chart-wrap{
+    background:var(--surface-2);border:1px solid var(--border);
+    border-radius:7px;padding:8px 4px 4px;margin:8px 0;
+  }
+  .chart-legend{
+    display:flex;gap:12px;flex-wrap:wrap;font-size:10.5px;color:var(--text-faint);
+    margin:4px 4px 8px;
+  }
+  .chart-legend span{display:flex;align-items:center;gap:4px;}
+  .chart-legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
   .indicators{
     display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
     gap:8px;margin-top:8px;
@@ -244,6 +255,19 @@
   </div>
 
   <div class="panel">
+    <h2>Alertas</h2>
+    <div class="row">
+      <div class="field" style="flex:0;">
+        <button class="ghost" onclick="requestNotifPermission()">🔔 Activar notificaciones</button>
+      </div>
+    </div>
+    <div id="alertStatus" class="key-status missing">Notificaciones no activadas todavía.</div>
+    <div class="hint">
+      Te avisará cuando un activo de tu watchlist pase a señal "Compra fuerte" o "Venta fuerte", y cuando una posición toque el stop-loss o take-profit que le configures al registrarla. Las notificaciones solo funcionan con la pestaña abierta (o en segundo plano, según tu navegador) — no llegan si cierras el sitio por completo.
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>Configuración de datos</h2>
     <div class="row">
       <div class="field" style="flex:2;min-width:220px;">
@@ -329,11 +353,11 @@
     <div class="row" style="margin-top:10px;">
       <div class="field">
         <label for="posPrice">Precio de compra (por unidad)</label>
-        <input type="number" id="posPrice" step="any" placeholder="150.00">
+        <input type="number" id="posPrice" step="any" placeholder="150.00" oninput="updateQtyPreview()">
       </div>
       <div class="field">
-        <label for="posQty">Cantidad</label>
-        <input type="number" id="posQty" step="any" placeholder="10">
+        <label for="posAmount">Monto invertido (total)</label>
+        <input type="number" id="posAmount" step="any" placeholder="500.00" oninput="updateQtyPreview()">
       </div>
       <div class="field" style="min-width:110px;flex:0.6;">
         <label for="posCurrency">Moneda</label>
@@ -345,6 +369,17 @@
       <div class="field" style="flex:0;">
         <label>&nbsp;</label>
         <button onclick="addPosition()">+ Registrar compra</button>
+      </div>
+    </div>
+    <div class="hint" id="qtyPreview" style="margin-top:6px;"></div>
+    <div class="row" style="margin-top:10px;">
+      <div class="field">
+        <label for="posStopLoss">Stop-loss (opcional, en la moneda de compra)</label>
+        <input type="number" id="posStopLoss" step="any" placeholder="ej. 130.00">
+      </div>
+      <div class="field">
+        <label for="posTakeProfit">Take-profit (opcional, en la moneda de compra)</label>
+        <input type="number" id="posTakeProfit" step="any" placeholder="ej. 180.00">
       </div>
     </div>
     <div class="field" style="margin-top:10px;">
@@ -369,6 +404,15 @@
       </div>
     </div>
     <div class="summary-grid" id="summaryGrid"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Costo promedio por símbolo</h2>
+    <div class="hint" style="margin-top:0;margin-bottom:10px;">
+      Agrupa tus compras del mismo símbolo (en la misma moneda) y calcula tu costo promedio ponderado real, en vez de mostrar cada lote por separado.
+    </div>
+    <div id="symbolSummary"></div>
+    <div class="empty" id="emptySymbolSummary" style="display:none;">Aún no hay posiciones abiertas para agrupar.</div>
   </div>
 
   <div class="panel">
@@ -599,6 +643,29 @@ function bollinger(arr, period=20, mult=2){
   const std = Math.sqrt(variance);
   return {upper: mean+mult*std, lower: mean-mult*std, mid: mean};
 }
+function smaSeries(arr, period){
+  const out = [];
+  for(let i=0;i<arr.length;i++){
+    if(i < period-1){ out.push(null); continue; }
+    let sum=0;
+    for(let j=i-period+1;j<=i;j++) sum += arr[j];
+    out.push(sum/period);
+  }
+  return out;
+}
+function bollingerSeries(arr, period=20, mult=2){
+  const upper=[], lower=[];
+  for(let i=0;i<arr.length;i++){
+    if(i < period-1){ upper.push(null); lower.push(null); continue; }
+    const slice = arr.slice(i-period+1, i+1);
+    const mean = slice.reduce((a,b)=>a+b,0)/period;
+    const variance = slice.reduce((a,b)=>a+Math.pow(b-mean,2),0)/period;
+    const std = Math.sqrt(variance);
+    upper.push(mean+mult*std);
+    lower.push(mean-mult*std);
+  }
+  return {upper, lower};
+}
 
 /* ---------- MOTOR DE SEÑALES ---------- */
 function computeSignal(closes){
@@ -662,7 +729,54 @@ function computeSignal(closes){
   return {score, label, cls, reasons, horizon, sma20, sma50, rsi: rsiVal, macd: macdVal, bb};
 }
 
-/* ---------- FETCH: TWELVE DATA (acciones) ---------- */
+function buildChartSVG(closes){
+  const N = Math.min(closes.length, 90);
+  const data = closes.slice(closes.length - N);
+  const sma20 = smaSeries(data, 20);
+  const sma50 = smaSeries(data, 50);
+  const bb = bollingerSeries(data, 20, 2);
+
+  const W = 400, H = 130, padY = 8;
+  const allVals = data.concat(bb.upper.filter(v=>v!==null), bb.lower.filter(v=>v!==null));
+  const max = Math.max(...allVals), min = Math.min(...allVals);
+  const range = (max - min) || 1;
+  const x = i => (i/(N-1)) * W;
+  const y = v => H - padY - ((v-min)/range) * (H - padY*2);
+
+  const pathFrom = (arr) => {
+    let d = '';
+    arr.forEach((v,i) => {
+      if(v===null || v===undefined) return;
+      d += (d==='' ? 'M' : 'L') + x(i).toFixed(1) + ',' + y(v).toFixed(1) + ' ';
+    });
+    return d.trim();
+  };
+
+  // Área de Bollinger (upper hacia adelante, lower hacia atrás)
+  let bandPath = '';
+  let started = false;
+  for(let i=0;i<N;i++){
+    if(bb.upper[i]===null) continue;
+    bandPath += (started ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(bb.upper[i]).toFixed(1) + ' ';
+    started = true;
+  }
+  for(let i=N-1;i>=0;i--){
+    if(bb.lower[i]===null) continue;
+    bandPath += 'L' + x(i).toFixed(1) + ',' + y(bb.lower[i]).toFixed(1) + ' ';
+  }
+
+  const closePath = pathFrom(data);
+  const sma20Path = pathFrom(sma20);
+  const sma50Path = pathFrom(sma50);
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="110" preserveAspectRatio="none" style="display:block;">
+      ${bandPath ? `<path d="${bandPath} Z" fill="var(--accent)" fill-opacity="0.07" stroke="none"/>` : ''}
+      ${sma50Path ? `<path d="${sma50Path}" fill="none" stroke="var(--neutral)" stroke-width="1.2" stroke-dasharray="3,3"/>` : ''}
+      ${sma20Path ? `<path d="${sma20Path}" fill="none" stroke="var(--accent)" stroke-width="1.3"/>` : ''}
+      <path d="${closePath}" fill="none" stroke="var(--text)" stroke-width="1.6"/>
+    </svg>`;
+}
 async function fetchStockSeries(symbol){
   if(!STATE.apiKey) throw new Error('Falta API key de Twelve Data. Guárdala arriba para activar acciones/BMV.');
   const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=1day&outputsize=100&apikey=${STATE.apiKey}`;
@@ -724,6 +838,8 @@ async function fetchOne(asset){
     else result = await fetchStockSeries(asset.symbol);
     const signal = computeSignal(result.closes);
     STATE.cache[asset.id] = { ...result, signal, error: null, updatedAt: new Date() };
+    checkSignalAlert(asset, signal);
+    checkPositionAlerts(asset);
   }catch(e){
     STATE.cache[asset.id] = { error: e.message, updatedAt: new Date() };
   }
@@ -784,6 +900,17 @@ function renderAssets(){
 
       const s = c.signal;
       inner += `<div class="signal-badge ${s.cls}">${s.label} · score ${s.score.toFixed(2)}</div>`;
+
+      if(c.closes && c.closes.length >= 20){
+        inner += `<div class="chart-wrap">${buildChartSVG(c.closes)}</div>
+          <div class="chart-legend">
+            <span><i class="dot" style="background:var(--text);"></i>Precio</span>
+            <span><i class="dot" style="background:var(--accent);"></i>SMA 20</span>
+            <span><i class="dot" style="background:var(--neutral);"></i>SMA 50</span>
+            <span><i class="dot" style="background:var(--accent);opacity:.3;"></i>Bandas Bollinger</span>
+          </div>`;
+      }
+
       inner += `<div class="horizon"><b>Horizonte orientativo:</b> ${s.horizon}</div>`;
 
       inner += `<div class="indicators">`;
@@ -866,32 +993,54 @@ function updateWatchlistDatalist(){
   if(!dl) return;
   dl.innerHTML = STATE.watchlist.map(a => `<option value="${a.symbol}">`).join('');
 }
+function updateQtyPreview(){
+  const price = parseFloat(document.getElementById('posPrice').value);
+  const amount = parseFloat(document.getElementById('posAmount').value);
+  const el = document.getElementById('qtyPreview');
+  if(!el) return;
+  if(price > 0 && amount > 0){
+    const qty = amount / price;
+    el.textContent = `≈ ${qty.toLocaleString('en-US',{maximumFractionDigits:6})} unidades al precio indicado.`;
+  } else {
+    el.textContent = '';
+  }
+}
 function addPosition(){
   const type = document.getElementById('posType').value;
   const symbolRaw = document.getElementById('posSymbol').value.trim();
   const date = document.getElementById('posDate').value || new Date().toISOString().slice(0,10);
   const price = parseFloat(document.getElementById('posPrice').value);
-  const qty = parseFloat(document.getElementById('posQty').value);
+  const amount = parseFloat(document.getElementById('posAmount').value);
   const currency = document.getElementById('posCurrency').value;
   const notes = document.getElementById('posNotes').value.trim();
+  const stopLossRaw = document.getElementById('posStopLoss').value;
+  const takeProfitRaw = document.getElementById('posTakeProfit').value;
+  const stopLoss = stopLossRaw ? parseFloat(stopLossRaw) : null;
+  const takeProfit = takeProfitRaw ? parseFloat(takeProfitRaw) : null;
 
-  if(!symbolRaw || isNaN(price) || isNaN(qty) || price<=0 || qty<=0){
-    alert('Completa símbolo, precio y cantidad (mayores a 0).');
+  if(!symbolRaw || isNaN(price) || isNaN(amount) || price<=0 || amount<=0){
+    alert('Completa símbolo, precio y monto invertido (mayores a 0).');
     return;
   }
   const symbol = type === 'crypto' ? symbolRaw : symbolRaw.toUpperCase();
+  const qty = amount / price;
 
   STATE.positions.push({
     id: 'pos_' + Date.now() + '_' + Math.floor(Math.random()*1000),
     symbol, type, buyDate: date, buyPrice: price, buyCurrency: currency,
-    qty, notes, status: 'abierta'
+    qty, investedAmount: amount, notes, status: 'abierta',
+    stopLoss: (stopLoss && stopLoss>0) ? stopLoss : null,
+    takeProfit: (takeProfit && takeProfit>0) ? takeProfit : null
   });
   persistPositions();
 
   document.getElementById('posSymbol').value = '';
   document.getElementById('posPrice').value = '';
-  document.getElementById('posQty').value = '';
+  document.getElementById('posAmount').value = '';
   document.getElementById('posNotes').value = '';
+  document.getElementById('posStopLoss').value = '';
+  document.getElementById('posTakeProfit').value = '';
+  updateQtyPreview();
 
   renderPortfolio();
 }
@@ -995,7 +1144,7 @@ function metricsFor(pos){
   const investedValue = pos.buyPrice * pos.qty;
   const gain = currentValue - investedValue;
   const gainPct = investedValue !== 0 ? (gain/investedValue*100) : 0;
-  return { hasLive:true, currentValue, investedValue, gain, gainPct };
+  return { hasLive:true, currentValue, investedValue, gain, gainPct, currentPriceInBuyCur: currentInBuyCur };
 }
 
 /* ---------- PORTAFOLIO: RENDER ---------- */
@@ -1006,9 +1155,57 @@ function fmtMoney(v, cur){
 function renderPortfolio(){
   updateWatchlistDatalist();
   renderFxNote();
+  renderAlertStatus();
+  renderSymbolSummary();
   renderOpenPositions();
   renderSummary();
   renderClosedHistory();
+}
+function renderSymbolSummary(){
+  const wrap = document.getElementById('symbolSummary');
+  const empty = document.getElementById('emptySymbolSummary');
+  if(!wrap) return;
+  if(STATE.positions.length === 0){
+    wrap.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const groups = {};
+  STATE.positions.forEach(pos => {
+    const key = pos.symbol + '|' + pos.type + '|' + pos.buyCurrency;
+    if(!groups[key]) groups[key] = { symbol: pos.symbol, type: pos.type, currency: pos.buyCurrency, qty: 0, invested: 0, currentValue: 0, hasLive: true, lots: 0 };
+    const g = groups[key];
+    g.qty += pos.qty;
+    g.invested += pos.qty * pos.buyPrice;
+    g.lots += 1;
+    const m = metricsFor(pos);
+    if(m.hasLive){ g.currentValue += m.currentValue; } else { g.hasLive = false; }
+  });
+
+  const rows = Object.values(groups).map(g => {
+    const avgCost = g.invested / g.qty;
+    const gain = g.currentValue - g.invested;
+    const gainPct = g.invested !== 0 ? (gain/g.invested*100) : 0;
+    const cls = gain >= 0 ? 'up' : 'down';
+    const sign = gain >= 0 ? '+' : '';
+    return `<tr>
+      <td class="sym">${g.symbol}${g.lots>1?` <span style="color:var(--text-faint);font-family:var(--sans);font-size:11px;">(${g.lots} compras)</span>`:''}</td>
+      <td>${typeLabel(g.type)}</td>
+      <td>${g.qty.toLocaleString('en-US',{maximumFractionDigits:6})}</td>
+      <td>${fmtMoney(avgCost, g.currency)}</td>
+      <td>${fmtMoney(g.invested, g.currency)}</td>
+      <td>${g.hasLive ? fmtMoney(g.currentValue, g.currency) : '—'}</td>
+      <td class="${g.hasLive ? ('change '+cls) : ''}">${g.hasLive ? sign+fmtMoney(gain, g.currency)+' ('+sign+gainPct.toFixed(2)+'%)' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table class="history-table">
+      <thead><tr><th>Símbolo</th><th>Mercado</th><th>Cant. total</th><th>Costo prom.</th><th>Invertido</th><th>Valor actual</th><th>Ganancia</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 function renderOpenPositions(){
   const wrap = document.getElementById('openPositions');
@@ -1049,7 +1246,7 @@ function renderOpenPositions(){
           </div>
           <div class="field">
             <label>Cantidad a cerrar</label>
-            <input type="number" id="sellQty_${pos.id}" step="any" placeholder="${pos.qty}">
+            <input type="number" id="sellQty_${pos.id}" step="any" placeholder="${pos.qty.toLocaleString('en-US',{maximumFractionDigits:6})}">
           </div>
           <div class="field">
             <label>Fecha de venta</label>
@@ -1067,14 +1264,29 @@ function renderOpenPositions(){
         </div>`;
     }
 
+    let alertBadge = '';
+    const alerted = STATE.alertedPositions[pos.id];
+    if(alerted && alerted.stop){
+      alertBadge += `<div class="signal-badge venta-fuerte">⚠ Stop-loss alcanzado (${fmtMoney(pos.stopLoss, pos.buyCurrency)})</div>`;
+    }
+    if(alerted && alerted.tp){
+      alertBadge += `<div class="signal-badge compra-fuerte">🎯 Take-profit alcanzado (${fmtMoney(pos.takeProfit, pos.buyCurrency)})</div>`;
+    }
+    let slTpLine = '';
+    if(pos.stopLoss || pos.takeProfit){
+      slTpLine = `<div class="pos-sub" style="margin-top:2px;">${pos.stopLoss?`Stop-loss: ${fmtMoney(pos.stopLoss, pos.buyCurrency)}`:''}${pos.stopLoss && pos.takeProfit?' · ':''}${pos.takeProfit?`Take-profit: ${fmtMoney(pos.takeProfit, pos.buyCurrency)}`:''}</div>`;
+    }
+
     card.innerHTML = `
       <div class="pos-head">
         <div>
           <h4>${pos.symbol} <span class="type">${typeLabel(pos.type)}</span></h4>
-          <div class="pos-sub">${pos.qty} und · compra ${fmtMoney(pos.buyPrice, pos.buyCurrency)} · ${pos.buyDate}</div>
+          <div class="pos-sub">${fmtMoney(pos.buyPrice*pos.qty, pos.buyCurrency)} invertidos · ${pos.qty.toLocaleString('en-US',{maximumFractionDigits:6})} und @ ${fmtMoney(pos.buyPrice, pos.buyCurrency)} · ${pos.buyDate}</div>
+          ${slTpLine}
         </div>
         ${gainBlock}
       </div>
+      ${alertBadge}
       ${pos.notes ? `<div class="pos-notes">${pos.notes}</div>` : ''}
       <div class="card-footer">
         <span class="updated">Costo total: ${fmtMoney(pos.buyPrice*pos.qty, pos.buyCurrency)}</span>
@@ -1152,6 +1364,86 @@ function renderClosedHistory(){
       <thead><tr><th>Símbolo</th><th>Cant.</th><th>Compra → Venta</th><th>Fechas</th><th>Días</th><th>Ganancia realizada</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+/* ---------- ALERTAS ---------- */
+STATE.lastSignalCls = {};
+STATE.alertedPositions = {}; // id -> {stop:bool, tp:bool}
+
+function notifSupported(){
+  return typeof Notification !== 'undefined';
+}
+function notifPermission(){
+  return notifSupported() ? Notification.permission : 'unsupported';
+}
+async function requestNotifPermission(){
+  if(!notifSupported()){
+    renderAlertStatus();
+    return;
+  }
+  await Notification.requestPermission();
+  renderAlertStatus();
+}
+function fireNotification(title, body){
+  if(notifSupported() && Notification.permission === 'granted'){
+    try{ new Notification(title, {body}); }catch(e){ /* algunos navegadores móviles no soportan new Notification() directo */ }
+  }
+}
+function renderAlertStatus(){
+  const el = document.getElementById('alertStatus');
+  if(!el) return;
+  if(!notifSupported()){
+    el.textContent = 'Tu navegador no soporta notificaciones.';
+    el.className = 'key-status missing';
+  } else if(Notification.permission === 'granted'){
+    el.textContent = 'Notificaciones activadas.';
+    el.className = 'key-status ok';
+  } else if(Notification.permission === 'denied'){
+    el.textContent = 'Notificaciones bloqueadas — actívalas desde la configuración del navegador para este sitio.';
+    el.className = 'key-status missing';
+  } else {
+    el.textContent = 'Notificaciones no activadas todavía.';
+    el.className = 'key-status missing';
+  }
+}
+
+function checkSignalAlert(asset, signal){
+  const prev = STATE.lastSignalCls[asset.id];
+  STATE.lastSignalCls[asset.id] = signal.cls;
+  if(prev === undefined) return; // primera carga, no alertar
+  if(prev === signal.cls) return;
+  if(signal.cls === 'compra-fuerte' || signal.cls === 'venta-fuerte'){
+    fireNotification(
+      'Analista Técnico · ' + asset.symbol,
+      (signal.cls==='compra-fuerte' ? '📈 Señal de Compra fuerte' : '📉 Señal de Venta fuerte') + ' — ' + signal.reasons.join(', ')
+    );
+  }
+}
+
+function checkPositionAlerts(asset){
+  STATE.positions
+    .filter(p => p.symbol === asset.symbol && p.type === asset.type)
+    .forEach(pos => {
+      if(!pos.stopLoss && !pos.takeProfit) return;
+      const m = metricsFor(pos);
+      if(!m.hasLive || m.currentPriceInBuyCur === undefined) return;
+      const price = m.currentPriceInBuyCur;
+      if(!STATE.alertedPositions[pos.id]) STATE.alertedPositions[pos.id] = {};
+      const state = STATE.alertedPositions[pos.id];
+
+      if(pos.stopLoss && price <= pos.stopLoss && !state.stop){
+        fireNotification('⚠ Stop-loss alcanzado · ' + pos.symbol, `Precio actual ${fmtMoney(price, pos.buyCurrency)} tocó tu stop-loss de ${fmtMoney(pos.stopLoss, pos.buyCurrency)}.`);
+        state.stop = true;
+      }
+      if(pos.stopLoss && price > pos.stopLoss) state.stop = false;
+
+      if(pos.takeProfit && price >= pos.takeProfit && !state.tp){
+        fireNotification('🎯 Take-profit alcanzado · ' + pos.symbol, `Precio actual ${fmtMoney(price, pos.buyCurrency)} tocó tu take-profit de ${fmtMoney(pos.takeProfit, pos.buyCurrency)}.`);
+        state.tp = true;
+      }
+      if(pos.takeProfit && price < pos.takeProfit) state.tp = false;
+    });
+  renderPortfolio();
 }
 
 /* ---------- DETECCIÓN DE SANDBOX ---------- */
